@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shreyesh's Sudoku Solver</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #4f6728;
+            margin-bottom: 20px;
+        }
+
+        #sudoku-container {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            grid-gap: 1px;
+            width: 360px;
+            height: 360px;
+            background-color: #f4f4f4;
+        }
+
+        .cell {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+        }
+
+        /* Apply alternating colors for better visual separation */
+        .cell:nth-child(odd) {
+            background-color: #fafafa;
+        }
+
+        .cell:nth-child(even) {
+            background-color: #f1f1f1;
+        }
+
+        .cell input {
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            font-size: 18px;
+            border: none;
+            outline: none;
+            background-color: transparent;
+            color: #333;
+        }
+
+        #controls {
+            margin-top: 30px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            margin: 5px;
+        }
+
+        /* Solve button - green */
+        #solve-button {
+            background-color: #28a745;
+            color: white;
+        }
+
+        #solve-button:hover {
+            background-color: #218838;
+        }
+
+        /* Stop button - red */
+        #stop-button {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        #stop-button:hover {
+            background-color: #c82333;
+        }
+
+        /* Clear button - white */
+        #clear-button {
+            background-color: white;
+            color: #333;
+            border: 1px solid #ccc;
+        }
+
+        #clear-button:hover {
+            background-color: #7996b2;
+        }
+
+        /* Random Puzzle button - multicolour */
+        #random-button {
+            background: linear-gradient(45deg, #ff6f61, #ffcc00, #66b3ff, #9b59b6);
+            color: white;
+        }
+
+        #random-button:hover {
+            background: linear-gradient(45deg, #ff5722, #ff9800, #2196f3, #9c27b0);
+        }
+
+        button:disabled {
+            background-color: #ccc;
+        }
+
+        #message {
+            color: red;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Shreyesh's Sudoku Solver</h1>
+    <div id="sudoku-container"></div>
+    <div id="controls">
+        <button id="solve-button">Solve</button>
+        <button id="stop-button">Stop</button>
+        <button id="clear-button">Clear</button>
+        <button id="random-button">Random Puzzle</button>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        const sudokuContainer = document.getElementById('sudoku-container');
+        const solveButton = document.getElementById('solve-button');
+        const stopButton = document.getElementById('stop-button');
+        const clearButton = document.getElementById('clear-button');
+        const randomButton = document.getElementById('random-button');
+        const message = document.getElementById('message');
+
+        let solving = false;
+
+        const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
+        const randomPuzzles = [
+            [
+                [5, 3, 0, 0, 7, 0, 0, 0, 0],
+                [6, 0, 0, 1, 9, 5, 0, 0, 0],
+                [0, 9, 8, 0, 0, 0, 0, 6, 0],
+                [8, 0, 0, 0, 6, 0, 0, 0, 3],
+                [4, 0, 0, 8, 0, 3, 0, 0, 1],
+                [7, 0, 0, 0, 2, 0, 0, 0, 6],
+                [0, 6, 0, 0, 0, 0, 2, 8, 0],
+                [0, 0, 0, 4, 1, 9, 0, 0, 5],
+                [0, 0, 0, 0, 8, 0, 0, 7, 9],
+            ],
+        ];
+
+        function createGrid() {
+            for (let row = 0; row < 9; row++) {
+                for (let col = 0; col < 9; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.maxLength = 1;
+                    input.addEventListener('input', (e) => {
+                        const value = e.target.value;
+                        if (/^[1-9]$/.test(value)) {
+                            grid[row][col] = parseInt(value);
+                        } else {
+                            grid[row][col] = 0;
+                            e.target.value = '';
+                        }
+                    });
+
+                    cell.appendChild(input);
+                    sudokuContainer.appendChild(cell);
+                }
+            }
+        }
+
+        function clearGrid() {
+            const cells = sudokuContainer.querySelectorAll('input');
+            cells.forEach((cell) => (cell.value = ''));
+            for (let row = 0; row < 9; row++) {
+                for (let col = 0; col < 9; col++) {
+                    grid[row][col] = 0;
+                }
+            }
+        }
+
+        function loadRandomPuzzle() {
+            const randomIndex = Math.floor(Math.random() * randomPuzzles.length);
+            const puzzle = randomPuzzles[randomIndex];
+            for (let row = 0; row < 9; row++) {
+                for (let col = 0; col < 9; col++) {
+                    grid[row][col] = puzzle[row][col];
+                }
+            }
+            updateGrid(grid);
+        }
+
+        function updateGrid(board) {
+            const cells = sudokuContainer.querySelectorAll('input');
+            for (let row = 0; row < 9; row++) {
+                for (let col = 0; col < 9; col++) {
+                    const index = row * 9 + col;
+                    cells[index].value = board[row][col] === 0 ? '' : board[row][col];
+                }
+            }
+        }
+
+        solveButton.addEventListener('click', async () => {
+            solving = true;
+            solveButton.disabled = true;
+            message.textContent = '';
+            const solvable = await solveSudoku(grid);
+            if (!solvable && solving) {
+                message.textContent = 'The entered Sudoku is unsolvable!';
+            }
+            solveButton.disabled = false;
+            solving = false;
+        });
+
+        stopButton.addEventListener('click', () => {
+            solving = false;
+            message.textContent = 'Solving stopped by the user.';
+        });
+
+        clearButton.addEventListener('click', clearGrid);
+        randomButton.addEventListener('click', loadRandomPuzzle);
+
+        async function solveSudoku(board) {
+            for (let row = 0; row < 9; row++) {
+                for (let col = 0; col < 9; col++) {
+                    if (!solving) return false;
+                    if (board[row][col] === 0) {
+                        for (let num = 1; num <= 9; num++) {
+                            if (isValid(board, row, col, num)) {
+                                board[row][col] = num;
+                                updateGrid(board);
+                                await new Promise((resolve) => setTimeout(resolve, 50));
+
+                                if (await solveSudoku(board)) {
+                                    return true;
+                                }
+
+                                board[row][col] = 0;
+                                updateGrid(board);
+                                await new Promise((resolve) => setTimeout(resolve, 50));
+                            }
+                        }
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function isValid(board, row, col, num) {
+            for (let x = 0; x < 9; x++) {
+                if (
+                    board[row][x] === num ||
+                    board[x][col] === num ||
+                    board[3 * Math.floor(row / 3) + Math.floor(x / 3)][
+                        3 * Math.floor(col / 3) + (x % 3)
+                    ] === num
+                ) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        createGrid();
+    </script>
+</body>
+</html>
